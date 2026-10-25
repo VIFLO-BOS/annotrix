@@ -15,6 +15,7 @@ export const registerSchema = z.object({
   email: z.string().email('Invalid email address'),
   phone: z.string().min(10, 'Phone number must be at least 10 characters'),
   password: z.string().min(6, 'Password must be at least 6 characters'),
+  nin: z.string().length(11, "NIN must be exactly 11 digits"),
 });
 
 /**
@@ -39,10 +40,12 @@ export const createExamSchema = z.object({
     type: z.nativeEnum(QuestionType),
     order: z.number().min(0),
     points: z.number().min(0).optional(),
+    imageUrl: z.string().url().optional(),
     options: z.array(z.object({
       content: z.string().min(1, 'Option content is required'),
       isCorrect: z.boolean().optional(),
       order: z.number().min(0),
+      imageUrl: z.string().url().optional(),
     })).optional(),
   })).min(1, 'At least one question is required'),
 });

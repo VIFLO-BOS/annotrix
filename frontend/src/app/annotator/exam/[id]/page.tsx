@@ -24,6 +24,7 @@ import {
   Zap,
   MousePointer2,
   Loader2,
+  ImageIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -281,26 +282,28 @@ export default function ActiveExamPage({ params }: PageProps) {
   const currentAnswer = answers[currentQuestion?.id];
 
   return (
-    <div className="max-w-5xl mx-auto space-y-8 animate-in fade-in duration-1000 pb-20">
+    <div className="max-w-7xl mx-auto space-y-4 animate-in fade-in duration-1000 pb-20 px-4">
       {/* HUD: Timer and Progress indicator (Sticky) */}
-      <div className="sticky top-4 z-50 glass-card rounded-3xl border-none shadow-2xl shadow-black/20 p-5 backdrop-blur-3xl">
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-6">
+      <div className="sticky top-4 z-50 glass-card rounded-2xl border-none shadow-2xl shadow-black/20 p-3 backdrop-blur-3xl">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-6">
             <div
               className={cn(
-                "flex flex-col items-center justify-center min-w-[120px] p-3 rounded-2xl bg-foreground/[0.03] border border-white/5 transition-colors",
+                "flex flex-col items-center justify-center min-w-[120px] p-2 rounded-xl bg-foreground/[0.03] border border-white/5 transition-colors",
                 timeRemaining < 300
                   ? "bg-destructive/10 border-destructive/20 animate-pulse"
                   : "",
               )}
             >
               <div className="flex items-center gap-2 mb-1">
-                <Clock
-                  className={cn(
-                    "w-3.5 h-3.5",
-                    timeRemaining < 300 ? "text-destructive" : "text-primary",
-                  )}
-                />
+                <div className={cn("p-1.5 rounded-lg flex items-center justify-center", timeRemaining < 300 ? "bg-destructive/20" : "bg-primary/20")}>
+                  <Clock
+                    className={cn(
+                      "w-3.5 h-3.5",
+                      timeRemaining < 300 ? "text-destructive" : "text-primary",
+                    )}
+                  />
+                </div>
                 <span className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground/60">
                   Time Remaining
                 </span>
@@ -321,23 +324,27 @@ export default function ActiveExamPage({ params }: PageProps) {
               <div className="flex items-center gap-2">
                 <Badge
                   variant="secondary"
-                  className="rounded-full px-3 py-0.5 font-semibold text-[9px] uppercase tracking-wider border-none bg-primary/10 text-primary"
+                  className="rounded-lg px-3 py-1 font-semibold text-[10px] uppercase tracking-wider border-none bg-primary/20 text-primary shadow-sm"
                 >
-                  Question {currentQuestionIndex + 1} / {questions.length}
+                  Q {currentQuestionIndex + 1} / {questions.length}
                 </Badge>
                 {pasteCount > 0 && (
                   <Badge
                     variant="destructive"
-                    className="rounded-full px-3 py-0.5 font-semibold text-[9px] uppercase tracking-wider border-none animate-pulse"
+                    className="rounded-lg px-3 py-1 font-semibold text-[10px] uppercase tracking-wider border-none animate-pulse flex items-center shadow-sm"
                   >
-                    <ClipboardCopy className="w-3 h-3 mr-1" /> {pasteCount}{" "}
-                    Paste(s)
+                    <div className="p-1 bg-destructive-foreground/20 rounded-md mr-1.5">
+                      <ClipboardCopy className="w-3 h-3" /> 
+                    </div>
+                    {pasteCount} Pasts
                   </Badge>
                 )}
               </div>
               <div className="flex items-center gap-2.5">
-                <Activity className="w-3 h-3 text-emerald-500" />
-                <span className="text-[10px] font-semibold text-muted-foreground/40 uppercase tracking-widest">
+                <div className="p-1.5 bg-emerald-500/20 rounded-lg">
+                  <Activity className="w-3 h-3 text-emerald-500" />
+                </div>
+                <span className="text-[10px] font-semibold text-muted-foreground/50 uppercase tracking-widest">
                   Monitor Active
                 </span>
               </div>
@@ -362,7 +369,7 @@ export default function ActiveExamPage({ params }: PageProps) {
         </div>
 
         {/* Progress Bar */}
-        <div className="mt-5 w-full bg-foreground/5 rounded-full h-1.5 overflow-hidden">
+        <div className="mt-3 w-full bg-foreground/5 rounded-full h-1 overflow-hidden">
           <div
             className="bg-gradient-to-r from-primary via-primary to-primary/40 h-full rounded-full transition-all duration-700 relative"
             style={{
@@ -374,20 +381,20 @@ export default function ActiveExamPage({ params }: PageProps) {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
         {/* Main Question Surface */}
-        <div className="lg:col-span-8 space-y-6">
+        <div className="lg:col-span-9 space-y-4">
           <Card className="border-none shadow-glass glass-card group overflow-hidden transition-all duration-500 hover:shadow-primary/5">
             <div
               className={cn(
-                "h-1.5 w-full bg-gradient-to-r transition-opacity duration-500",
+                "h-1 w-full bg-gradient-to-r transition-opacity duration-500",
                 currentQuestion?.type === "MCQ"
                   ? "from-blue-500/50 to-blue-500/10"
                   : "from-purple-500/50 to-purple-500/10",
               )}
             />
 
-            <CardContent className="p-8 space-y-8">
+            <CardContent className="p-6 space-y-6">
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <Badge
@@ -406,19 +413,42 @@ export default function ActiveExamPage({ params }: PageProps) {
                 <h3 className="text-2xl sm:text-3xl font-semibold leading-tight text-foreground/90">
                   {currentQuestion?.content}
                 </h3>
+                {currentQuestion?.image && (
+                  <div className="mt-2 rounded-2xl overflow-hidden border border-white/10 bg-foreground/[0.02] shadow-lg">
+                    <div className="flex items-center gap-2 px-4 py-2.5 border-b border-white/5 bg-gradient-to-r from-primary/[0.06] to-transparent">
+                      <div className="p-1 rounded-md bg-primary/20">
+                        <ImageIcon className="w-3.5 h-3.5 text-primary" />
+                      </div>
+                      <span className="text-[10px] font-bold uppercase tracking-widest text-primary/70">Reference Image — Study carefully before answering</span>
+                    </div>
+                    <div className="p-4 bg-foreground/[0.01]">
+                      <img 
+                        src={currentQuestion.image}
+                        alt="Reference image for this question"
+                        className="w-full max-h-[600px] object-contain rounded-xl cursor-pointer hover:scale-[1.02] transition-transform duration-300"
+                        onClick={() => window.open(currentQuestion.image, '_blank')}
+                      />
+                    </div>
+                    <div className="px-4 py-2 border-t border-white/5 bg-foreground/[0.02]">
+                      <p className="text-[9px] font-medium text-muted-foreground/30 text-center uppercase tracking-widest">
+                        Click image to open full size in new tab
+                      </p>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* MCQ UI: Interactive listing of options */}
               {currentQuestion?.type === "MCQ" && currentQuestion?.options && (
-                <div className="grid grid-cols-1 gap-4">
+                <div className="grid grid-cols-1 gap-3">
                   {currentQuestion?.options.map((option, idx) => (
                     <button
                       key={option.id}
                       onClick={() => handleOptionSelect(option.id)}
                       className={cn(
-                        "group/opt relative w-full text-left p-6 rounded-2xl border transition-all duration-300",
+                        "group/opt relative w-full text-left p-4 rounded-xl border transition-all duration-300",
                         currentAnswer?.selectedOptionId === option.id
-                          ? "bg-primary/10 border-primary/40 shadow-lg shadow-primary/5"
+                          ? "bg-primary/10 border-primary/40 shadow-sm shadow-primary/5"
                           : "bg-foreground/[0.02] border-white/5 hover:bg-foreground/[0.04] hover:border-white/10",
                       )}
                     >
@@ -443,6 +473,13 @@ export default function ActiveExamPage({ params }: PageProps) {
                         >
                           {option.content}
                         </span>
+                        {option.imageUrl && (
+                          <img 
+                            src={option.imageUrl}
+                            alt="Option image"
+                            className="mr-3 max-h-16 rounded-lg border border-white/5"
+                          />
+                        )}
                         {currentAnswer?.selectedOptionId === option.id && (
                           <CheckCircle2 className="ml-auto w-5 h-5 text-primary" />
                         )}
@@ -454,12 +491,12 @@ export default function ActiveExamPage({ params }: PageProps) {
 
               {/* Subjective UI: Rich text area for long-form answers */}
               {currentQuestion?.type === "SUBJECTIVE" && (
-                <div className="space-y-6">
+                <div className="space-y-4">
                   <div className="relative group/text">
-                    <div className="absolute inset-0 bg-primary/5 blur-2xl group-focus-within/text:bg-primary/10 transition-all rounded-[2rem]" />
+                    <div className="absolute inset-0 bg-primary/5 blur-xl group-focus-within/text:bg-primary/10 transition-all rounded-[1rem]" />
                     <textarea
                       ref={textareaRef}
-                      className="relative w-full h-80 p-8 bg-foreground/[0.03] border border-white/5 rounded-[2rem] resize-none focus:outline-none focus:ring-2 focus:ring-primary/20 focus:bg-foreground/[0.05] transition-all font-medium text-lg leading-relaxed placeholder:text-muted-foreground/20"
+                      className="relative w-full h-64 p-5 bg-foreground/[0.03] border border-white/5 rounded-2xl resize-none focus:outline-none focus:ring-2 focus:ring-primary/20 focus:bg-foreground/[0.05] transition-all font-medium text-base leading-relaxed placeholder:text-muted-foreground/20"
                       placeholder="Type your answer here..."
                       value={currentAnswer?.textAnswer || ""}
                       onChange={(e) => handleTextInput(e.target.value)}
@@ -500,12 +537,12 @@ export default function ActiveExamPage({ params }: PageProps) {
               )}
 
               {/* Toolbar: Navigation and Save actions */}
-              <div className="flex items-center justify-between pt-8 border-t border-white/5">
+              <div className="flex items-center justify-between pt-6 border-t border-white/5">
                 <Button
                   variant="ghost"
                   onClick={goToPrevious}
                   disabled={currentQuestionIndex === 0 || isSaving}
-                  className="rounded-full h-12 px-6 font-semibold text-muted-foreground hover:text-foreground hover:bg-foreground/5 "
+                  className="rounded-xl h-11 px-5 font-semibold text-muted-foreground hover:text-foreground hover:bg-foreground/5 "
                 >
                   <ChevronLeft className="w-4 h-4 mr-2" /> Back
                 </Button>
@@ -554,9 +591,9 @@ export default function ActiveExamPage({ params }: PageProps) {
         </div>
 
         {/* Side Panel: Grid Navigator and Instructions */}
-        <div className="lg:col-span-4 space-y-6">
+        <div className="lg:col-span-3 space-y-4">
           <Card className="border-none shadow-glass glass-card">
-            <CardContent className="p-6 space-y-6">
+            <CardContent className="p-5 space-y-5">
               <div className="flex items-center justify-between">
                 <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/60 flex items-center gap-2">
                   <Layers className="w-3.5 h-3.5 text-primary" /> Questions

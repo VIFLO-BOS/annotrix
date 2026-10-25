@@ -49,7 +49,9 @@ export default function LoginPage() {
   useEffect(() => {
     // Only redirect if hydration and global validation have finished
     if (hasHydrated && !isAuthLoading && isAuthenticated) {
-      if (user?.role === "ADMIN") {
+      if (!user?.emailVerified) {
+        router.push("/verify");
+      } else if (user?.role === "ADMIN") {
         router.push("/admin");
       } else {
         router.push("/annotator");
@@ -76,7 +78,9 @@ export default function LoginPage() {
         description: "Welcome back!",
       });
 
-      if (response.user.role === "ADMIN") {
+      if (!response.user.emailVerified) {
+        router.push("/verify");
+      } else if (response.user.role === "ADMIN") {
         router.push("/admin");
       } else {
         router.push("/annotator");
@@ -104,11 +108,9 @@ export default function LoginPage() {
       <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full bg-primary/20 blur-[120px] pointer-events-none animate-pulse" />
       <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full bg-purple-500/20 blur-[120px] pointer-events-none animate-pulse" />
 
-      <div className="absolute top-8 right-8">
-        <ThemeToggle />
-      </div>
 
-      <Card className="w-full max-w-md border-none shadow-glass animate-in fade-in zoom-in duration-500 glass-card">
+
+      <Card className="w-full max-w-sm border border-white/10 shadow-2xl animate-in fade-in zoom-in duration-500 bg-white/5 backdrop-blur-xl rounded-2xl">
         <CardHeader className="space-y-4 pb-8">
           <div className="flex justify-center mb-2">
             <div className="p-2.5 rounded-2xl bg-primary/10 border border-primary/20">
@@ -116,10 +118,10 @@ export default function LoginPage() {
             </div>
           </div>
           <div className="space-y-1 text-center">
-            <CardTitle className="text-2xl font-semibold tracking-normal">
+            <CardTitle className="text-2xl font-semibold tracking-normal text-white">
               Welcome Back
             </CardTitle>
-            <CardDescription className="text-[13px] font-medium text-muted-foreground/50">
+            <CardDescription className="text-[13px] font-medium text-white/50">
               Enter secure credentials to access your portal
             </CardDescription>
           </div>
@@ -129,7 +131,7 @@ export default function LoginPage() {
             <div className="space-y-2">
               <Label
                 htmlFor="email"
-                className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground ml-1"
+                className="text-[10px] font-semibold uppercase tracking-widest text-white/60 ml-1"
               >
                 Email Address
               </Label>
@@ -140,14 +142,14 @@ export default function LoginPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="h-11 bg-background/50 border-white/10 text-sm"
+                className="h-11 !bg-white/5 border-white/10 text-white text-sm placeholder:text-white/30 focus:border-white/20 focus:ring-0"
               />
             </div>
             <div className="space-y-2">
               <div className="flex items-center justify-between ml-1">
                 <Label
                   htmlFor="password"
-                  className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground"
+                  className="text-[10px] font-semibold uppercase tracking-widest text-white/60"
                 >
                   Password
                 </Label>
@@ -165,7 +167,7 @@ export default function LoginPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                className="h-11 bg-background/50 border-white/10 text-sm"
+                className="h-11 !bg-white/5 border-white/10 text-white text-sm placeholder:text-white/30 focus:border-white/20 focus:ring-0"
               />
             </div>
           </CardContent>
@@ -185,7 +187,7 @@ export default function LoginPage() {
               )}
             </Button>
             <div className="text-center">
-              <p className="text-[11px] font-medium text-muted-foreground">
+              <p className="text-[11px] font-medium text-white/50">
                 New to the platform?{" "}
                 <Link
                   href="/register"

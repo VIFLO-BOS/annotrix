@@ -62,24 +62,44 @@ export const getDashboardStats = async (req: AuthenticatedRequest, res: Response
       },
     });
 
-    // Step 2: Check if there are any exams available to take
-    const activeExamsCount = await prisma.exam.count({
+    // Step 2: Check for active exams and calculate aggregated attempts
+    const activeExams = await prisma.exam.findMany({
       where: { isActive: true },
+      include: {
+        _count: {
+          select: {
+             attempts: {
+               where: { userId: user.id, status: { in: [AttemptStatus.SUBMITTED, AttemptStatus.EXPIRED] } }
+             }
+          }
+        }
+      }
     });
 
-    // Step 3: Calculate eligibility and remaining attempts
-    const totalAttempts = user._count.attempts_data;
-    const remainingAttempts = Math.max(0, user.maxAttempts - totalAttempts);
+    let hasAnyExamWithAttempts = false;
+    let totalMaxAttempts = 0;
+    let totalUsedAttempts = 0;
+
+    activeExams.forEach(exam => {
+      totalMaxAttempts += exam.maxAttempts;
+      totalUsedAttempts += exam._count.attempts;
+      if (exam._count.attempts < exam.maxAttempts) {
+         hasAnyExamWithAttempts = true;
+      }
+    });
+
+    // Step 3: Calculate eligibility and final status
     const isEligible = user.status === 'ELIGIBLE';
+    const remainingAttempts = Math.max(0, totalMaxAttempts - totalUsedAttempts);
     
-    // logic: user can take exam if they are eligible, have attempts left, exams exist, and no current attempt is active
-    const canTakeExam = isEligible && remainingAttempts > 0 && activeExamsCount > 0 && !inProgressAttempt;
+    // logic: user can take exam if they are eligible, have attempts left across exams, and no current attempt is active
+    const canTakeExam = isEligible && hasAnyExamWithAttempts && !inProgressAttempt;
 
     // Step 4: Format the response object
     const stats: DashboardStats = {
-      totalAttempts,
+      totalAttempts: totalUsedAttempts,
       remainingAttempts,
-      maxAttempts: user.maxAttempts,
+      maxAttempts: totalMaxAttempts > 0 ? totalMaxAttempts : user.maxAttempts,
       status: user.status,
       isEligible,
       canTakeExam,

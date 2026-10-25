@@ -62,7 +62,7 @@ class ApiService {
   /**
    * Registers a new user account.
    */
-  async register(data: { fullName: string; email: string; phone: string; password: string }) {
+  async register(data: { fullName: string; email: string; phone: string; password: string; nin: string }) {
     const response = await this.client.post('/auth/register', data);
     return response.data;
   }
@@ -84,6 +84,24 @@ class ApiService {
   }
 
   // ==========================================
+  // AUTHENTICATION & VERIFICATION
+  // ==========================================
+
+  /**
+   * Triggers an OTP transmission to the user's available channels.
+   */
+  async sendOtp(channel: 'EMAIL' | 'PHONE') {
+    const response = await this.client.post('/auth/send-otp', { channel });
+    return response.data;
+  }
+
+  /**
+   * Verifies an Identity token OTP.
+   */
+  async verifyOtp(code: string, channel: 'EMAIL' | 'PHONE') {
+    const response = await this.client.post('/auth/verify-otp', { code, channel });
+    return response.data;
+  }
   // EXAM MANAGEMENT
   // ==========================================
 
@@ -289,6 +307,90 @@ class ApiService {
    */
   async deleteUser(userId: string) {
     const response = await this.client.delete(`/admin/users/${userId}`);
+    return response.data;
+  }
+
+  // ==========================================
+  // NEW FEATURES
+  // ==========================================
+
+  /**
+   * Retrieves all exams with admin stats (Admin-only).
+   */
+  async getAllExamsAdmin() {
+    const response = await this.client.get('/exams/admin/all');
+    return response.data;
+  }
+
+  /**
+   * Approves a retake for a specific user+exam combo (Admin-only).
+   */
+  async approveRetake(userId: string, examId: string) {
+    const response = await this.client.post('/exams/approve-retake', { userId, examId });
+    return response.data;
+  }
+
+  /**
+   * Uploads an image for use in exam questions/options (Admin-only).
+   */
+  async uploadImage(file: File) {
+    const formData = new FormData();
+    formData.append('image', file);
+    const response = await this.client.post('/exams/upload-image', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return response.data;
+  }
+
+  /**
+   * Updates a question's reference image URL (Admin-only).
+   */
+  async updateQuestionImage(questionId: string, imageUrl: string) {
+    const response = await this.client.patch(`/exams/questions/${questionId}/image`, { imageUrl });
+    return response.data;
+  }
+
+  /**
+   * Manually verify a user's identity (Admin-only).
+   */
+  async adminVerifyUser(userId: string) {
+    const response = await this.client.post('/admin/verify-user', { userId });
+    return response.data;
+  }
+
+  /**
+   * Downloads qualified users as Excel file.
+   */
+  async exportQualifiedUsers() {
+    const response = await this.client.get('/admin/export-qualified', {
+      responseType: 'blob',
+    });
+    return response.data;
+  }
+
+  /**
+   * Downloads disqualified users as Excel file.
+   */
+  async exportDisqualifiedUsers() {
+    const response = await this.client.get('/admin/export-disqualified', {
+      responseType: 'blob',
+    });
+    return response.data;
+  }
+
+  /**
+   * Retrieves qualified users list.
+   */
+  async getQualifiedUsers() {
+    const response = await this.client.get('/admin/qualified-users');
+    return response.data;
+  }
+
+  /**
+   * Retrieves disqualified users list.
+   */
+  async getDisqualifiedUsers() {
+    const response = await this.client.get('/admin/disqualified-users');
     return response.data;
   }
 }

@@ -15,6 +15,7 @@ import {
   trackTabSwitch 
 } from '../controllers/attemptController';
 import { authenticate } from '../middleware/auth';
+import { asyncHandler } from '../utils/asyncHandler';
 
 const router = Router();
 
@@ -24,13 +25,13 @@ const router = Router();
  */
 
 // Initialize a new exam session for the current user
-router.post('/start', authenticate, startAttempt);
+router.post('/start', authenticate, asyncHandler(startAttempt as any));
 
 // Save progress for an individual question during the test
-router.post('/save-answer', authenticate, saveAnswer);
+router.post('/save-answer', authenticate, asyncHandler(saveAnswer as any));
 
 // Finalize the attempt and trigger the evaluation engine
-router.post('/submit', authenticate, submitAttempt);
+router.post('/submit', authenticate, asyncHandler(submitAttempt as any));
 
 /**
  * Historical Data Retrieval
@@ -38,10 +39,10 @@ router.post('/submit', authenticate, submitAttempt);
  */
 
 // View a list of the user's completed submissions
-router.get('/my-attempts', authenticate, getMyAttempts);
+router.get('/my-attempts', authenticate, asyncHandler(getMyAttempts as any));
 
 // View details for a specific historical attempt
-router.get('/:id', authenticate, getAttemptDetails);
+router.get('/:id', authenticate, asyncHandler(getAttemptDetails as any));
 
 /**
  * Integrity & Proctoring Events
@@ -49,10 +50,10 @@ router.get('/:id', authenticate, getAttemptDetails);
  */
 
 // Silently log whenever a user attempts to paste text into an answer
-router.post('/track-paste', authenticate, trackPaste);
+router.post('/track-paste', authenticate, asyncHandler(trackPaste as any));
 
 // Silently log whenever a user switches browser tabs during the test
-router.post('/track-tab-switch', authenticate, trackTabSwitch);
+router.post('/track-tab-switch', authenticate, asyncHandler(trackTabSwitch as any));
 
 export default router;
 

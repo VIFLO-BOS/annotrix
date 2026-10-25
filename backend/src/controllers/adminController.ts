@@ -8,7 +8,8 @@ import { Response } from 'express';
 import { AuthenticatedRequest } from '../types';
 import { prisma } from '../utils/prisma';
 import { resetAttemptsSchema, updateUserStatusSchema } from '../utils/validation';
-import { AttemptStatus } from '@prisma/client';
+import { AttemptStatus, UserStatus } from '@prisma/client';
+import { exportUsersToExcel } from '../utils/excel';
 
 /**
  * Retrieves a list of all users and their basic statistics.
@@ -29,6 +30,9 @@ export const getAllUsers = async (req: AuthenticatedRequest, res: Response): Pro
         status: true,
         attempts: true,
         maxAttempts: true,
+        ninVerified: true,
+        emailVerified: true,
+        PhoneVerified: true,
         createdAt: true,
         _count: {
           select: {
@@ -73,6 +77,9 @@ export const getUserDetails = async (req: AuthenticatedRequest, res: Response): 
         status: true,
         attempts: true,
         maxAttempts: true,
+        ninVerified: true,
+        emailVerified: true,
+        PhoneVerified: true,
         createdAt: true,
         attempts_data: {
           where: {
@@ -126,7 +133,7 @@ export const resetAttempts = async (req: AuthenticatedRequest, res: Response): P
       where: { id: validatedData.userId },
       data: {
         attempts: 0,
-        status: 'ELIGIBLE', // Reactivate the user
+        status: UserStatus.ELIGIBLE, // Reactivate the user
       },
     });
 
@@ -148,6 +155,9 @@ export const resetAttempts = async (req: AuthenticatedRequest, res: Response): P
         email: user.email,
         attempts: user.attempts,
         status: user.status,
+        ninVerified: user.ninVerified,
+        emailVerified: user.emailVerified,
+        PhoneVerified: user.PhoneVerified,
       },
     });
   } catch (error) {
@@ -176,7 +186,7 @@ export const updateUserStatus = async (req: AuthenticatedRequest, res: Response)
     const user = await prisma.user.update({
       where: { id: validatedData.userId },
       data: {
-        status: validatedData.status,
+        status: validatedData.status as UserStatus,
       },
     });
 
@@ -197,6 +207,9 @@ export const updateUserStatus = async (req: AuthenticatedRequest, res: Response)
         fullName: user.fullName,
         email: user.email,
         status: user.status,
+        ninVerified: user.ninVerified,
+        emailVerified: user.emailVerified,
+        PhoneVerified: user.PhoneVerified,
       },
     });
   } catch (error) {
@@ -250,7 +263,7 @@ export const getPlagiarismReports = async (req: AuthenticatedRequest, res: Respo
 export const getAnalytics = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
     // Execute multiple database counts and aggregates to get a system overview
-    
+
     // Total numbers
     const totalUsers = await prisma.user.count({ where: { role: 'USER' } });
     const totalExams = await prisma.exam.count();
@@ -342,3 +355,104 @@ export const getAdminActions = async (req: AuthenticatedRequest, res: Response):
   }
 };
 
+export const getQualifiedUsers = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    const users = await prisma.user.findMany({
+      where: { status: UserStatus.QUALIFIED },
+      select: {
+        id: true,
+        fullName: true,
+        email: true,
+        phone: true,
+        role: true,
+        status: true,
+        attempts: true,
+        maxAttempts: true,
+        createdAt: true,
+      },
+    });
+    res.json({ users });
+  } catch (error) {
+    throw error;
+  }
+};
+
+export const getDisqualifiedUsers = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    const users = await prisma.user.findMany({
+      where: { status: UserStatus.DISQUALIFIED },
+      select: {
+        id: true,
+        fullName: true,
+        email: true,
+        phone: true,
+        role: true,
+        status: true,
+        attempts: true,
+        maxAttempts: true,
+        createdAt: true,
+      },
+    });
+    res.json({ users });
+  } catch (error) {
+    throw error;
+  }
+};
+
+export const adminVerifyUser = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    if (!req.user) {
+      res.status(401).json({ error: 'Not authenticated' });
+      return;
+    }
+
+    const { userId } = req.body;
+    await prisma.user.update({
+      where: { id: userId },
+      data: { ninVerified: true, emailVerified: true, PhoneVerified: true },
+    });
+
+    await prisma.adminAction.create({
+      data: {
+        adminId: req.user.id,
+        targetId: userId,
+        actionType: 'MANUAL_VERIFY',
+        description: 'Manually verified user (NIN, email, phone)',
+      },
+    });
+
+    res.json({ message: 'User manually verified by admin' });
+  } catch (error) {
+    throw error;
+  }
+};
+
+export const exportQualifiedUsers = async (req: AuthenticatedRequest, res: Response) => {
+  const users = await prisma.user.findMany({
+    where: { status: 'QUALIFIED', role: 'USER' },
+    select: { fullName: true, email: true, phone: true, createdAt:true}
+  })
+  await exportUsersToExcel(res, users, 'Qualified Users', 'qualified-users');
+}
+
+export const exportDisQualifiedUsers = async (req: AuthenticatedRequest, res: Response) => {
+  const users = await prisma.user.findMany({
+    where: { status: 'DISQUALIFIED', role: 'USER' },
+    select: { fullName: true, email: true, phone: true, createdAt:true}
+  })
+  await exportUsersToExcel(res, users, 'Disqualified Users', 'disqualified-users');
+}
+
+export const deleteUser = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+
+    await prisma.user.delete({
+      where: { id },
+    });
+
+    res.json({ message: 'User deleted successfully' });
+  } catch (error) {
+    throw error;
+  }
+};

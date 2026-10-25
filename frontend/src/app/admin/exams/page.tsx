@@ -130,63 +130,60 @@ export default function AdminExamsPage() {
   }
 
   return (
-    <div className="space-y-10 animate-in fade-in duration-700 pb-10">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
+    <div className="space-y-6 animate-in fade-in duration-500 pb-8">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div className="space-y-1">
-          <h2 className="text-3xl font-semibold text-foreground">
+          <h2 className="text-xl font-semibold text-foreground">
             Exam Management
           </h2>
-          <p className="text-xs text-muted-foreground flex items-center gap-1.5 font-medium">
-             <Activity className="w-3.5 h-3.5" /> View and manage assessment manifests and questions
+          <p className="text-sm text-muted-foreground flex items-center gap-1.5">
+             <Activity className="w-3.5 h-3.5" /> Manage assessment manifests and questions
           </p>
         </div>
         <Button 
           onClick={() => router.push('/admin/exams/create')}
-          className="rounded-full h-10 px-6 font-medium text-xs uppercase tracking-wider shadow-lg shadow-primary/20 transition-all hover:scale-105 active:scale-95"
+          className="h-9 px-4 text-sm rounded-lg"
         >
-          <Plus className="w-3.5 h-3.5 mr-2 stroke-[2px]" />
-          Create New Exam
+          <Plus className="w-3.5 h-3.5 mr-2" />
+          Create Exam
         </Button>
       </div>
 
-      <div className="relative group">
-        <div className="absolute inset-0 bg-primary/5 blur-xl group-focus-within:bg-primary/10 transition-all rounded-2xl" />
-        <div className="relative">
-          <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-muted-foreground/30 w-4 h-4 group-focus-within:text-primary transition-colors" />
-          <Input
-            placeholder="Search exams by title..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-11 h-11 bg-background/50 border-white/5 rounded-xl shadow-lg shadow-black/5 text-sm font-medium placeholder:text-muted-foreground/30 focus-visible:ring-primary/20"
-          />
-        </div>
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+        <Input
+          placeholder="Search exams by title..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="pl-10 h-9 rounded-lg text-sm placeholder:text-muted-foreground/50"
+        />
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {filteredExams.map((exam) => (
-          <Card key={exam.id} className="border-none shadow-glass glass-card group hover:scale-[1.02] transition-all duration-300 overflow-hidden">
+          <Card key={exam.id} className="glass-card overflow-hidden">
             <div className={cn(
-              "h-1.5 w-full bg-gradient-to-r transition-opacity duration-300",
-              exam.isActive ? "from-emerald-500/80 to-emerald-500/20" : "from-muted-foreground/30 to-muted-foreground/10"
+              "h-1 w-full",
+              exam.isActive ? "bg-emerald-500" : "bg-muted-foreground/20"
             )} />
             
-            <CardHeader className="pb-3">
+            <CardHeader className="px-4 pt-4 pb-2">
               <div className="flex items-start justify-between gap-3 mb-1">
-                <CardTitle className="text-lg font-semibold leading-tight group-hover:text-primary transition-colors">
+                <CardTitle className="text-sm font-semibold leading-tight">
                   {exam.title}
                 </CardTitle>
-                <Badge variant={exam.isActive ? 'success' : 'secondary'} className="rounded-full px-2.5 py-0.5 font-semibold text-[9px] uppercase tracking-wider border-none shrink-0">
+                <Badge variant={exam.isActive ? 'success' : 'secondary'} className="rounded-md px-2 py-0.5 text-xs shrink-0">
                   {exam.isActive ? 'Active' : 'Offline'}
                 </Badge>
               </div>
               {exam.description && (
-                <p className="text-xs font-medium text-muted-foreground/60 line-clamp-2 leading-relaxed">
+                <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">
                   {exam.description}
                 </p>
               )}
             </CardHeader>
 
-            <CardContent className="space-y-5">
+            <CardContent className="px-4 pb-4 space-y-3">
               <div className="grid grid-cols-2 gap-3.5">
                 <MetricItem icon={Clock} label="Duration" value={`${exam.duration}m`} />
                 <MetricItem icon={Target} label="Pass Mark" value={`${exam.passMark}%`} />
@@ -194,10 +191,10 @@ export default function AdminExamsPage() {
                 <MetricItem icon={FileText} label="Questions" value={`${exam._count?.questions || 0} Qs`} />
               </div>
 
-              <div className="pt-4 border-t border-white/5 flex items-center justify-between">
+              <div className="pt-3 border-t border-border flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                   <Users className="w-3.5 h-3.5 text-muted-foreground/40" />
-                   <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/40">
+                   <Users className="w-3.5 h-3.5 text-muted-foreground" />
+                   <span className="text-xs text-muted-foreground">
                      {exam._count?.attempts || 0} Attempts
                    </span>
                 </div>
@@ -267,12 +264,12 @@ export default function AdminExamsPage() {
 
 function MetricItem({ icon: Icon, label, value }: { icon: any, label: string, value: string }) {
   return (
-    <div className="p-2.5 rounded-xl bg-foreground/[0.03] border border-white/5 space-y-1 group-hover:bg-foreground/[0.05] transition-colors">
+    <div className="p-2.5 rounded-lg border border-border space-y-1">
       <div className="flex items-center gap-1.5">
-        <Icon className="w-2.5 h-2.5 text-primary/60" />
-        <span className="text-[8px] font-semibold uppercase tracking-wider text-muted-foreground/40">{label}</span>
+        <Icon className="w-3 h-3 text-muted-foreground" />
+        <span className="text-xs text-muted-foreground">{label}</span>
       </div>
-      <p className="text-xs font-medium text-foreground">{value}</p>
+      <p className="text-sm font-medium text-foreground">{value}</p>
     </div>
   );
 }

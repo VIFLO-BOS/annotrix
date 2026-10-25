@@ -34,7 +34,7 @@ import { api } from "@/services/api";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 
-type Option = { content: string; isCorrect: boolean };
+type Option = { content: string; isCorrect: boolean; imageUrl?: string };
 
 type Question = { 
   content: string; 
@@ -42,6 +42,7 @@ type Question = {
   points: number; 
   options: Option[];
   subjectiveAnswer?: string; 
+  imageUrl?: string;
 };
 
 /**
@@ -123,6 +124,7 @@ export default function CreateExam() {
             type: q.type,
             order: i + 1,
             points: q.points || 10,
+            imageUrl: q.imageUrl,
             options: mappedOptions
           };
         })
@@ -145,29 +147,21 @@ export default function CreateExam() {
   };
 
   return (
-    <div className="max-w-6xl mx-auto space-y-10 animate-in fade-in duration-700 pb-20">
+    <div className="mx-auto space-y-6 animate-in fade-in duration-500 pb-8">
       {/* Header Section */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between bg-card py-1 px-2" >
         <div className="flex items-center gap-3">
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            className="h-8 w-8 rounded-full hover:bg-primary/10 hover:text-primary transition-all"
-            onClick={() => router.back()}
-          >
-            <ChevronLeft className="w-4 h-4" />
-          </Button>
           <div className="space-y-0.5">
-            <h2 className="text-2xl font-bold tracking-tight text-foreground">Create Assessment</h2>
-            <p className="text-[10px] font-medium text-muted-foreground/50 uppercase tracking-widest flex items-center gap-1.5">
-              <Settings className="w-3 h-3" /> Manifest Configuration
+            <h2 className="text-xl font-semibold text-foreground">Create Assessment</h2>
+            <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+              <Settings className="w-3 h-3" /> Configuration
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           <Button 
             variant="outline" 
-            className="rounded-full glass h-9 border-white/5 font-medium text-xs px-5 transition-all"
+            className="h-9 px-4 text-sm rounded-lg"
             onClick={() => router.back()}
           >
             Discard
@@ -175,131 +169,171 @@ export default function CreateExam() {
           <Button 
             onClick={handleSave} 
             disabled={isSaving}
-            className="rounded-full h-9 font-medium text-xs px-6 shadow-lg shadow-primary/20 transition-all hover:scale-105 active:scale-95"
+            className="h-9 px-4 text-sm rounded-lg"
           >
-            {isSaving ? "Saving..." : "Save Manifest"}
+            {isSaving ? "Saving..." : "Save"}
           </Button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
-        {/* Manifest Sidebar */}
-        <div className="lg:col-span-1 space-y-8">
-          <Card className="border-none shadow-glass glass-card overflow-hidden">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        {/* Settings Sidebar */}
+        <div className="lg:col-span-1 space-y-4">
+          <Card className="glass-card overflow-hidden">
             <div className="h-1 w-full bg-primary/20" />
-            <CardHeader className="pb-4">
-               <CardTitle className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/50">Primary Settings</CardTitle>
+            <CardHeader className="px-4 pt-4 pb-2">
+               <CardTitle className="text-xs font-medium text-muted-foreground">Primary Settings</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-6 pt-2">
-              <div className="space-y-2">
-                <Label htmlFor="title" className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Title</Label>
+            <CardContent className="px-4 pb-4 space-y-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="title" className="text-xs text-muted-foreground">Title</Label>
                 <Input 
                   id="title" 
                   value={title} 
                   onChange={(e) => setTitle(e.target.value)} 
                   placeholder="e.g. Reasoning Assessment" 
-                  className="h-10 bg-background/50 border-white/5 rounded-xl font-medium px-4 text-sm focus-visible:ring-primary/20" 
+                  className="h-9 rounded-lg text-sm" 
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="description" className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Description</Label>
+              <div className="space-y-1.5">
+                <Label htmlFor="description" className="text-xs text-muted-foreground">Description</Label>
                 <Textarea 
                   id="description" 
                   value={description} 
                   onChange={(e) => setDescription(e.target.value)} 
                   placeholder="Define assessment parameters..." 
-                  className="min-h-[100px] bg-background/50 border-white/5 rounded-xl font-medium p-4 resize-none text-sm focus-visible:ring-primary/20" 
+                  className="min-h-[80px] rounded-lg text-sm resize-none" 
                 />
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                 <div className="space-y-2">
-                   <Label className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground/40 ml-1">Duration (Min)</Label>
-                   <Input type="number" value={duration} onChange={(e) => setDuration(e.target.value)} className="h-10 bg-background/50 border-white/5 rounded-xl font-medium text-sm text-center focus-visible:ring-primary/20" />
+              <div className="grid grid-cols-2 gap-3">
+                 <div className="space-y-1.5">
+                   <Label className="text-xs text-muted-foreground">Duration (Min)</Label>
+                   <Input type="number" value={duration} onChange={(e) => setDuration(e.target.value)} className="h-9 rounded-lg text-sm text-center" />
                  </div>
-                 <div className="space-y-2">
-                   <Label className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground/40 ml-1">Pass %</Label>
-                   <Input type="number" value={passMark} onChange={(e) => setPassMark(e.target.value)} className="h-10 bg-background/50 border-white/5 rounded-xl font-medium text-sm text-center focus-visible:ring-primary/20" />
+                 <div className="space-y-1.5">
+                   <Label className="text-xs text-muted-foreground">Pass %</Label>
+                   <Input type="number" value={passMark} onChange={(e) => setPassMark(e.target.value)} className="h-9 rounded-lg text-sm text-center" />
                  </div>
               </div>
-              <div className="space-y-2">
-                 <Label className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground/40 ml-1">Max Attempts</Label>
-                 <Input type="number" value={maxAttempts} onChange={(e) => setMaxAttempts(e.target.value)} className="h-10 bg-background/50 border-white/5 rounded-xl font-medium text-sm text-center focus-visible:ring-primary/20" />
+              <div className="space-y-1.5">
+                 <Label className="text-xs text-muted-foreground">Max Attempts</Label>
+                 <Input type="number" value={maxAttempts} onChange={(e) => setMaxAttempts(e.target.value)} className="h-9 rounded-lg text-sm text-center" />
               </div>
             </CardContent>
           </Card>
         </div>
 
         {/* Content Section */}
-        <div className="lg:col-span-2 space-y-6">
-          <div className="flex items-center justify-between px-2 mb-2">
-              <h3 className="text-lg font-semibold flex items-center gap-2">
-                 <HelpCircle className="w-5 h-5 text-primary/60" /> Question Registry
+        <div className="lg:col-span-2 space-y-4">
+          <div className="flex items-center justify-between">
+              <h3 className="text-sm font-medium flex items-center gap-2">
+                 <HelpCircle className="w-4 h-4 text-primary" /> Questions
               </h3>
-              <Button onClick={addQuestion} size="sm" className="rounded-xl h-8 px-4 font-medium text-[10px] uppercase tracking-wider bg-primary/10 text-primary hover:bg-primary/20 border-none">
-                 <Plus className="w-3 h-3 mr-1.5" /> Append Question
+              <Button onClick={addQuestion} size="sm" variant="outline" className="h-8 px-3 text-xs rounded-lg">
+                 <Plus className="w-3 h-3 mr-1.5" /> Add Question
               </Button>
           </div>
 
-          <div className="space-y-4">
+          <div className="space-y-3">
             {questions.map((q, index) => (
-              <Card key={index} className="border-none shadow-glass glass-card group hover:bg-white/[0.01] transition-all overflow-hidden border border-transparent hover:border-white/5">
+              <Card key={index} className="glass-card overflow-hidden">
                 <div className={cn(
-                  "h-1 w-full bg-gradient-to-r",
-                  q.type === 'MCQ' ? "from-blue-500/40 to-blue-500/10" : "from-primary/40 to-primary/10"
+                  "h-1 w-full",
+                  q.type === 'MCQ' ? "bg-blue-500/40" : "bg-primary/40"
                 )} />
-                <CardHeader className="flex flex-row items-center justify-between pb-3">
-                   <div className="flex items-center gap-3">
-                      <div className="flex items-center justify-center w-7 h-7 rounded-lg glass border border-white/5 font-bold text-[10px] text-primary shadow-sm">
+                <CardHeader className="flex flex-row items-center justify-between px-4 py-3">
+                   <div className="flex items-center gap-2">
+                      <div className="flex items-center justify-center w-6 h-6 rounded-md bg-muted text-xs font-medium text-muted-foreground">
                          {index + 1}
                       </div>
-                      <Badge variant="outline" className="rounded-full border-white/5 text-[8px] font-bold uppercase tracking-widest px-2 py-0.5 bg-foreground/[0.03]">
+                      <span className="text-xs text-muted-foreground border border-border rounded-md px-2 py-0.5">
                          {q.type}
-                      </Badge>
+                      </span>
                    </div>
-                   <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground/30 hover:text-destructive hover:bg-destructive/5 rounded-lg opacity-0 group-hover:opacity-100 transition-all" onClick={() => removeQuestion(index)}>
-                      <Trash2 className="w-4 h-4" />
+                   <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive hover:bg-destructive/5 rounded-md" onClick={() => removeQuestion(index)}>
+                      <Trash2 className="w-3.5 h-3.5" />
                    </Button>
                 </CardHeader>
-                <CardContent className="space-y-6 pt-2">
-                  <div className="space-y-4">
+                <CardContent className="px-4 pb-4 space-y-4">
+                  <div className="space-y-3">
                     <Textarea 
                       value={q.content} 
                       onChange={(e) => updateQuestion(index, "content", e.target.value)} 
-                      placeholder="Specify your question manifest here..." 
-                      className="min-h-[80px] bg-background/50 border-white/5 rounded-xl p-4 font-medium text-sm resize-none focus-visible:ring-primary/20"
+                      placeholder="Enter your question..." 
+                      className="min-h-[80px] rounded-lg text-sm resize-none"
                     />
                     
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-3">
                        <div className="flex-1 space-y-1.5">
-                          <Label className="text-[8px] font-bold text-muted-foreground/40 uppercase ml-1">Type</Label>
+                          <Label className="text-xs text-muted-foreground">Type</Label>
                           <Select value={q.type} onValueChange={(val) => updateQuestion(index, "type", val as any)}>
-                            <SelectTrigger className="glass border-white/5 h-9 rounded-xl px-4 font-medium text-[10px] uppercase">
+                            <SelectTrigger className="h-9 rounded-lg text-sm">
                               <SelectValue />
                             </SelectTrigger>
-                            <SelectContent className="glass border-white/10 p-1">
-                              <SelectItem value="MCQ" className="rounded-lg h-9 text-[10px] uppercase">MCQ</SelectItem>
-                              <SelectItem value="SUBJECTIVE" className="rounded-lg h-9 text-[10px] uppercase">Subjective</SelectItem>
+                            <SelectContent className="rounded-lg">
+                              <SelectItem value="MCQ" className="rounded-md text-sm">MCQ</SelectItem>
+                              <SelectItem value="SUBJECTIVE" className="rounded-md text-sm">Subjective</SelectItem>
                             </SelectContent>
                           </Select>
                        </div>
-                       <div className="w-32 space-y-1.5">
-                          <Label className="text-[8px] font-bold text-muted-foreground/40 uppercase ml-1">Points</Label>
-                          <Input type="number" value={q.points} onChange={(e) => updateQuestion(index, "points", parseInt(e.target.value))} className="h-9 bg-background/50 border-white/5 rounded-xl font-medium text-[10px] text-center" />
+                       <div className="w-24 space-y-1.5">
+                          <Label className="text-xs text-muted-foreground">Points</Label>
+                          <Input type="number" value={q.points} onChange={(e) => updateQuestion(index, "points", parseInt(e.target.value))} className="h-9 rounded-lg text-sm text-center" />
                        </div>
+                       <div className="w-32 space-y-1.5">
+                        <Label className="text-xs text-muted-foreground">Image</Label>
+                        <input 
+                          type="file" 
+                          accept="image/*"
+                          className="hidden"
+                          id={`q-img-${index}`}
+                          onChange={async (e) => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+
+                            // Optimistically preview the local image file immediately!
+                            const previewUrl = URL.createObjectURL(file);
+                            updateQuestion(index, "imageUrl", previewUrl);
+
+                            try {
+                              const result = await api.uploadImage(file);
+                              updateQuestion(index, "imageUrl", result.url);
+                              toast({ title: "Image Uploaded" });
+                            } catch {
+                              toast({ title: "Upload Failed", variant: "destructive" });
+                            }
+                          }}
+                        />
+                        <div className="space-y-2 w-full">
+                          {q.imageUrl && (
+                             <div className="relative w-full aspect-video rounded-lg overflow-hidden border border-border">
+                               <img src={q.imageUrl} alt="Question Asset" className="w-full h-full object-contain" />
+                             </div>
+                          )}
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            className="h-8 w-full text-xs rounded-lg"
+                            onClick={() => document.getElementById(`q-img-${index}`)?.click()}
+                          >
+                            {q.imageUrl ? "Replace" : "Upload"}
+                          </Button>
+                        </div>
+                      </div>
                     </div>
                   </div>
 
                   {q.type === "MCQ" ? (
-                    <div className="space-y-4 pt-4 border-t border-white/5">
+                    <div className="space-y-3 pt-4 border-t border-border">
                         <div className="flex items-center justify-between">
-                           <Label className="text-[10px] font-bold text-muted-foreground/50 uppercase tracking-widest">Options</Label>
-                           <Button variant="ghost" size="sm" onClick={() => addOption(index)} className="h-7 rounded-lg text-primary text-[9px] font-bold uppercase tracking-widest hover:bg-primary/5 px-3">
-                             <Plus className="w-3 h-3 mr-1" /> Add Option
+                           <Label className="text-xs text-muted-foreground">Options</Label>
+                           <Button variant="ghost" size="sm" onClick={() => addOption(index)} className="h-7 rounded-md text-primary text-xs hover:bg-primary/5 px-2">
+                             <Plus className="w-3 h-3 mr-1" /> Add
                            </Button>
                         </div>
-                        <div className="grid gap-3">
+                        <div className="grid gap-2">
                           {q.options.map((opt, oIndex) => (
-                            <div key={oIndex} className="flex items-center gap-3">
+                            <div key={oIndex} className="flex items-center gap-2">
                                <input 
                                  type="radio" 
                                  name={`correct-${index}`} 
@@ -310,18 +344,18 @@ export default function CreateExam() {
                                    newQuestions[index].options[oIndex].isCorrect = true;
                                    setQuestions(newQuestions);
                                  }}
-                                 className="w-4 h-4 accent-primary shrink-0 opacity-40 checked:opacity-100 transition-all"
+                                 className="w-4 h-4 accent-primary shrink-0"
                                />
                                <Input 
                                  value={opt.content} 
                                  onChange={(e) => updateOption(index, oIndex, "content", e.target.value)} 
-                                 placeholder="Option specification..."
+                                 placeholder="Option text..."
                                  className={cn(
-                                   "h-9 bg-background/50 border-white/5 rounded-xl px-4 text-xs font-medium focus-visible:ring-primary/20",
-                                   opt.isCorrect && "border-primary/20 bg-primary/5"
+                                   "h-9 rounded-lg text-sm",
+                                   opt.isCorrect && "border-primary/30 bg-primary/5"
                                  )}
                                />
-                               <Button variant="ghost" size="icon" onClick={() => removeOption(index, oIndex)} className="h-8 w-8 text-muted-foreground/20 hover:text-destructive hover:bg-destructive/5 rounded-lg">
+                               <Button variant="ghost" size="icon" onClick={() => removeOption(index, oIndex)} className="h-7 w-7 text-muted-foreground hover:text-destructive hover:bg-destructive/5 rounded-md">
                                  <Trash2 className="w-3.5 h-3.5" />
                                </Button>
                             </div>
@@ -329,13 +363,13 @@ export default function CreateExam() {
                         </div>
                     </div>
                   ) : (
-                    <div className="space-y-2 pt-4 border-t border-white/5">
-                       <Label className="text-[10px] font-bold text-muted-foreground/50 uppercase tracking-widest">Grading Blueprint</Label>
+                    <div className="space-y-1.5 pt-4 border-t border-border">
+                       <Label className="text-xs text-muted-foreground">Model Answer</Label>
                        <Textarea 
                         value={q.subjectiveAnswer || ""} 
                         onChange={(e) => updateQuestion(index, "subjectiveAnswer", e.target.value)} 
                         placeholder="Model answer for verification..."
-                        className="min-h-[100px] bg-background/50 border-white/5 rounded-xl p-4 font-medium text-xs focus-visible:ring-primary/20 resize-none"
+                        className="min-h-[80px] rounded-lg text-sm resize-none"
                       />
                     </div>
                   )}
@@ -344,11 +378,11 @@ export default function CreateExam() {
             ))}
 
             {questions.length === 0 && (
-              <div className="py-20 text-center glass-card rounded-3xl border border-dashed border-white/10 bg-foreground/[0.01]">
-                <FileText className="w-10 h-10 text-muted-foreground/10 mx-auto mb-4" />
-                <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground/30">Registry Manifest Empty</p>
-                <Button onClick={addQuestion} variant="ghost" className="mt-4 text-[10px] font-bold uppercase text-primary hover:bg-primary/5 rounded-xl px-6">
-                   Initialize First Question
+              <div className="py-16 text-center rounded-lg border border-dashed border-border">
+                <FileText className="w-8 h-8 text-muted-foreground/30 mx-auto mb-3" />
+                <p className="text-sm text-muted-foreground">No questions added yet</p>
+                <Button onClick={addQuestion} variant="ghost" className="mt-3 text-sm text-primary hover:bg-primary/5 rounded-lg px-4">
+                   Add First Question
                 </Button>
               </div>
             )}

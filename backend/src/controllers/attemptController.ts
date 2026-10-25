@@ -9,7 +9,9 @@ import { AuthenticatedRequest, StartAttemptInput, SaveAnswerInput, SubmitAttempt
 import { prisma } from '../utils/prisma';
 import { startAttemptSchema, saveAnswerSchema, submitAttemptSchema } from '../utils/validation';
 import { evaluateAttempt } from '../utils/evaluation';
-import { AttemptStatus } from '@prisma/client';
+import { AttemptStatus, UserStatus } from '@prisma/client';
+import { sendDisqualifiedEmail, sendQualifiedEmail } from '../utils/email';
+import { shuffleArray } from '../utils/shuffle';
 
 /**
  * Initializes a new exam attempt for a user.
@@ -39,13 +41,13 @@ export const startAttempt = async (req: AuthenticatedRequest, res: Response): Pr
     }
 
     // Block users who have been disqualified
-    if (user.status === 'DISQUALIFIED') {
+    if (user.status === UserStatus.DISQUALIFIED) {
       res.status(403).json({ error: 'You have been disqualified from taking exams' });
       return;
     }
 
     // Step 3: Verify exam exists and is currently active
-    const exam = await prisma.exam.findUnique({
+    const exam = await prisma.exam.findFirst({
       where: { id: validatedData.examId, isActive: true },
     });
 
@@ -54,10 +56,48 @@ export const startAttempt = async (req: AuthenticatedRequest, res: Response): Pr
       return;
     }
 
-    // Step 4: Enforce attempt limits (global max or exam-specific max)
-    if (user.attempts >= Math.min(user.maxAttempts, exam.maxAttempts)) {
-      res.status(403).json({ error: 'You have used all your attempts for this exam' });
+    // Step 3: Check if user has already passed this exam
+    // A user who has passed cannot retake the exam regardless of attempts remaining.
+    const passedAttempt = await prisma.attempt.findFirst({
+      where: {
+        userId: user.id,
+        examId: exam.id,
+        status: { in: [AttemptStatus.SUBMITTED, AttemptStatus.EXPIRED] }
+      },
+      include: { scores: true }
+    });
+
+    if (passedAttempt && passedAttempt.scores.some(s => s.passed)) {
+      res.status(403).json({ error: 'You have already passed this exam' });
       return;
+    }
+
+    // Step 4: Enforce attempt limits (exam-specific max)
+    const attemptsForExam = await prisma.attempt.count({
+      where: {
+        userId: user.id,
+        examId: exam.id,
+        status: { in: [AttemptStatus.SUBMITTED, AttemptStatus.EXPIRED] }
+      }
+    });
+
+    if (attemptsForExam >= exam.maxAttempts) {
+      // User exhausted regular attempts. Check if they have been granted admin retake approval.
+      const approval = await prisma.retakeApproval.findUnique({
+        where: {
+          userId_examId: { userId: user.id, examId: exam.id }
+        },
+      });
+
+      if (!approval) {
+        res.status(403).json({
+          error: 'You have exhausted your attempts for this exam. Contact an admin to request a retake.'
+        });
+        return;
+      }
+
+      // Approval exists - delete it (one-time use) and allow this extra attempt
+      await prisma.retakeApproval.delete({ where: { id: approval.id } });
     }
 
     // Step 5: Prevent concurrent attempts (only one "IN_PROGRESS" at a time)
@@ -69,7 +109,7 @@ export const startAttempt = async (req: AuthenticatedRequest, res: Response): Pr
     });
 
     if (inProgressAttempt) {
-      res.status(400).json({ 
+      res.status(400).json({
         error: 'You already have an in-progress attempt',
         attemptId: inProgressAttempt.id,
       });
@@ -95,6 +135,7 @@ export const startAttempt = async (req: AuthenticatedRequest, res: Response): Pr
                     id: true,
                     content: true,
                     order: true,
+                    imageUrl: true,
                   },
                 },
               },
@@ -120,13 +161,18 @@ export const startAttempt = async (req: AuthenticatedRequest, res: Response): Pr
           id: attempt.exam.id,
           title: attempt.exam.title,
           duration: attempt.exam.duration,
-          questions: attempt.exam.questions.map(q => ({
+          questions: shuffleArray(attempt.exam.questions).map((q) => ({
             id: q.id,
             content: q.content,
             type: q.type,
-            order: q.order,
             points: q.points,
-            options: q.options,
+            image: q.image,
+            // options are also shuffled but id stays the same
+            options: shuffleArray(q.options).map((o) => ({
+              id: o.id,
+              content: o.content,
+              imageUrl: o.imageUrl,
+            }))
           })),
         },
       },
@@ -167,7 +213,7 @@ export const saveAnswer = async (req: AuthenticatedRequest, res: Response): Prom
       const submittedAttempt = await prisma.attempt.findFirst({
         where: { id: validatedData.attemptId, userId: req.user.id, status: AttemptStatus.SUBMITTED }
       });
-      
+
       if (submittedAttempt) {
         res.json({ message: 'Answer ignored: session already submitted' });
         return;
@@ -276,7 +322,7 @@ export const submitAttempt = async (req: AuthenticatedRequest, res: Response): P
         });
         return;
       }
-      
+
       // If status is submitted but score doesn't exist, something went wrong previously
       // and we should proceed to re-evaluate it safely.
     }
@@ -288,23 +334,23 @@ export const submitAttempt = async (req: AuthenticatedRequest, res: Response): P
     // We run evaluation first, then commit the status change and the score record together.
     const evaluation = await evaluateAttempt(validatedData.attemptId);
 
-      const result = await prisma.$transaction(async (tx) => {
-        if (!req.user) throw new Error('User context lost during transaction');
+    const result = await prisma.$transaction(async (tx) => {
+      if (!req.user) throw new Error('User context lost during transaction');
 
-        const updatedAttempt = await tx.attempt.update({
-          where: { id: validatedData.attemptId },
-          data: {
-            status: AttemptStatus.SUBMITTED,
-            submittedAt: new Date(),
-            timeSpent,
-          },
-        });
+      const updatedAttempt = await tx.attempt.update({
+        where: { id: validatedData.attemptId },
+        data: {
+          status: AttemptStatus.SUBMITTED,
+          submittedAt: new Date(),
+          timeSpent,
+        },
+      });
 
-        const score = await tx.score.create({
-          data: {
-            userId: req.user.id,
-            attemptId: validatedData.attemptId,
-            accuracy: evaluation.accuracy,
+      const score = await tx.score.create({
+        data: {
+          userId: req.user.id,
+          attemptId: validatedData.attemptId,
+          accuracy: evaluation.accuracy,
           grammar: evaluation.grammar,
           plagiarism: evaluation.plagiarism,
           typingSpeed: evaluation.typingSpeed,
@@ -322,19 +368,41 @@ export const submitAttempt = async (req: AuthenticatedRequest, res: Response): P
       });
 
       // Post-submission checks
-      if (!evaluation.passed) {
-        const user = await tx.user.findUnique({
-          where: { id: req.user.id },
-        });
+      const allScores = await tx.score.findMany({
+        where: { userId: req.user!.id },
+        select: { passed: true },
+      });
 
-        if (user && user.attempts >= user.maxAttempts) {
-          await tx.user.update({
-            where: { id: req.user.id },
-            data: { status: 'DISQUALIFIED' },
-          });
+      const hasAnyPass = allScores.some((s) => s.passed);
+      const user = await tx.user.findUnique({ where: { id: req.user!.id } });
+      if (!user) throw new Error('User not found');
+      
+      if (hasAnyPass) {
+        // Rule: one pass = qualified
+        await tx.user.update({
+          where: { id: req.user!.id },
+          data: { status: UserStatus.QUALIFIED },
+        });
+        if (user?.email && user?.fullName) sendQualifiedEmail(user.email, user.fullName).catch(console.log);
+      } else {
+        // If they failed, we don't globally disqualify them immediately.
+        // They are just disqualified from this specific exam if they hit the max attempts for it,
+        // which is handled by startAttempt blocking them.
+        // We only globally disqualify if they've exhausted attempts on ALL active exams, 
+        // but for now, remaining ELIGIBLE lets them try other active exams.
+        const attemptsForExam = await tx.attempt.count({
+          where: { userId: user.id, examId: attempt.examId, status: { in: [AttemptStatus.SUBMITTED, AttemptStatus.EXPIRED] } }
+        });
+        
+        if (attemptsForExam >= attempt.exam.maxAttempts) {
+          console.log(`User ${user.id} exhausted attempts for exam ${attempt.examId}`);
+          
+          // Optionally check if there are any other exams they can take, 
+          // but relying on the per-exam check is safer.
         }
       }
 
+      // Return updated records so the caller can respond
       return { updatedAttempt, score };
     });
 
@@ -500,3 +568,33 @@ export const trackTabSwitch = async (req: AuthenticatedRequest, res: Response): 
   }
 };
 
+
+export const approveRetake = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    if (!req.user) {
+      res.status(401).json({ error: 'Not authenticated' });
+      return;
+    }
+
+    const { userId, examId } = req.body;
+
+    await prisma.retakeApproval.upsert({
+      where: { userId_examId: { userId, examId } },
+      create: { userId, examId, approvedBy: req.user.id },
+      update: { approvedBy: req.user.id },
+    });
+
+    await prisma.adminAction.create({
+      data: {
+        adminId: req.user.id,
+        targetId: userId,
+        actionType: 'APPROVE_RETAKE',
+        description: `Approved retake for exam ${examId}`,
+      },
+    });
+
+    res.json({ message: 'Retake approved' });
+  } catch (error) {
+    throw error;
+  }
+};

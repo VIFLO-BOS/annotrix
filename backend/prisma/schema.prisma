@@ -3,9 +3,8 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider  = "postgresql"
 }
-
 
 model User {
   id        String   @id @default(uuid())
@@ -28,8 +27,32 @@ model User {
   @@index([email])
   @@index([role])
   @@index([status])
+
+
+  ninHash       String?       @unique   // SHA-256 has of NIN
+  ninVerified   Boolean       @default(false)
+  PhoneVerified Boolean       @default(false)
+  emailVerified Boolean       @default(false)
+
+  otpCodes      OtpCode[]
+  retakeRequests RetakeApproval[] @relation("RetakeRequests")
+  retakeApprovalsGiven RetakeApproval[] @relation("RetakeApprovedBy")
 }
 
+model OtpCode {
+  id          String  @id @default(uuid())
+  userId      String 
+  code        String
+  channel     OtpChannel
+  expiresAt   DateTime
+  used        Boolean       @default(false)
+  createdAt   DateTime      @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId]) 
+
+}
 model Exam {
   id          String   @id @default(uuid())
   title       String
@@ -45,12 +68,14 @@ model Exam {
   attempts  Attempt[]
 
   @@index([isActive])
+  retakeApprovals RetakeApproval[]
 }
 
 model Question {
   id       String      @id @default(uuid())
   examId   String
   content  String
+  image    String?  
   type     QuestionType
   order    Int
   points   Float       @default(10)
@@ -71,6 +96,7 @@ model Option {
   content     String
   isCorrect   Boolean  @default(false)
   order       Int
+  imageUrl    String?  
 
   question    Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
 
@@ -176,6 +202,23 @@ model AdminAction {
   @@index([targetId])
 }
 
+model RetakeApproval {
+  id        String @id @default(uuid())
+  userId    String
+  examId    String
+  approvedBy  String
+  createdAt   DateTime @default(now())
+
+  user      User @relation("RetakeRequests", fields: [userId], references: [id], onDelete: Cascade)
+  exam      Exam @relation(fields: [examId], references: [id], onDelete: Cascade)
+  admin     User @relation("RetakeApprovedBy", fields: [approvedBy], references: [id])
+
+  @@unique([userId,examId])
+  @@index([userId])
+  @@index([examId])
+  @@index([approvedBy])
+}
+
 enum Role {
   USER
   ADMIN
@@ -183,6 +226,7 @@ enum Role {
 
 enum UserStatus {
   ELIGIBLE
+  QUALIFIED
   DISQUALIFIED
 }
 
@@ -195,4 +239,9 @@ enum AttemptStatus {
   IN_PROGRESS
   SUBMITTED
   EXPIRED
+}
+
+enum OtpChannel {
+  EMAIL
+  PHONE
 }

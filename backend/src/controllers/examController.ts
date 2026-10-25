@@ -4,7 +4,7 @@
  * for admins and retrieval for users.
  */
 
-import { Response } from 'express';
+import { Response, NextFunction} from 'express';
 import { AuthenticatedRequest, CreateExamInput } from '../types';
 import { prisma } from '../utils/prisma';
 import { createExamSchema } from '../utils/validation';
@@ -15,7 +15,7 @@ import { createExamSchema } from '../utils/validation';
  * @param req - Authenticated request
  * @param res - Array of active exams (sanitized for standard users)
  */
-export const getExams = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+export const getExams = async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
     const exams = await prisma.exam.findMany({
       where: { isActive: true },
@@ -33,7 +33,7 @@ export const getExams = async (req: AuthenticatedRequest, res: Response): Promis
 
     res.json({ exams });
   } catch (error) {
-    throw error;
+    next(error);
   }
 };
 
@@ -43,12 +43,12 @@ export const getExams = async (req: AuthenticatedRequest, res: Response): Promis
  * @param req - Request with exam ID in params
  * @param res - Detailed exam object
  */
-export const getExam = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+export const getExam = async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
     const { id } = req.params;
 
     const exam = await prisma.exam.findUnique({
-      where: { id, isActive: true },
+      where: { id },
       include: {
         questions: {
           orderBy: { order: 'asc' },
@@ -58,12 +58,15 @@ export const getExam = async (req: AuthenticatedRequest, res: Response): Promise
             type: true,
             order: true,
             points: true,
+            image: true,
             options: {
               orderBy: { order: 'asc' },
               select: {
                 id: true,
                 content: true,
                 order: true,
+                imageUrl: true,
+                isCorrect: true,
               },
             },
           },
@@ -78,9 +81,10 @@ export const getExam = async (req: AuthenticatedRequest, res: Response): Promise
 
     res.json({ exam });
   } catch (error) {
-    throw error;
+    next(error);
   }
 };
+
 
 /**
  * Creates a new exam with questions and options (Admin only).
@@ -88,8 +92,9 @@ export const getExam = async (req: AuthenticatedRequest, res: Response): Promise
  * 
  * @param req - Request with full exam structure in body
  * @param res - Created exam object
+ * @param next - Error forwarding
  */
-export const createExam = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+export const createExam = async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
     // Step 1: Validate complex nested exam structure
     const validatedData = createExamSchema.parse(req.body) as CreateExamInput;
@@ -108,11 +113,13 @@ export const createExam = async (req: AuthenticatedRequest, res: Response): Prom
             type: q.type,
             order: q.order,
             points: q.points || 10,
+            image: q.imageUrl,
             options: q.options ? {
               create: q.options.map(o => ({
                 content: o.content,
-                isCorrect: o.isCorrect || false, // Important: admins define the correct answer here
+                isCorrect: o.isCorrect || false,
                 order: o.order,
+                imageUrl: o.imageUrl,
               })),
             } : undefined,
           })),
@@ -132,7 +139,7 @@ export const createExam = async (req: AuthenticatedRequest, res: Response): Prom
       exam,
     });
   } catch (error) {
-    throw error;
+    next(error);
   }
 };
 
@@ -142,7 +149,7 @@ export const createExam = async (req: AuthenticatedRequest, res: Response): Prom
  * @param req - Request with exam ID in params and update fields in body
  * @param res - Updated exam object
  */
-export const updateExam = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+export const updateExam = async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
     const { id } = req.params;
     const { title, description, duration, isActive, maxAttempts, passMark } = req.body;
@@ -180,7 +187,7 @@ export const updateExam = async (req: AuthenticatedRequest, res: Response): Prom
  * Deletes an exam from the system (Admin only).
  * Prisma handles cascading deletion of questions and options.
  */
-export const deleteExam = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+export const deleteExam = async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
     const { id } = req.params;
 
@@ -191,7 +198,7 @@ export const deleteExam = async (req: AuthenticatedRequest, res: Response): Prom
 
     res.json({ message: 'Exam deleted successfully' });
   } catch (error) {
-    throw error;
+    next(error);
   }
 };
 
@@ -199,7 +206,7 @@ export const deleteExam = async (req: AuthenticatedRequest, res: Response): Prom
  * Retrieves all exams with high-level statistics for administration (Admin only).
  * Includes counts of questions and total attempts taken by users.
  */
-export const getAllExamsAdmin = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+export const getAllExamsAdmin = async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
     const exams = await prisma.exam.findMany({
       include: {
@@ -215,7 +222,8 @@ export const getAllExamsAdmin = async (req: AuthenticatedRequest, res: Response)
 
     res.json({ exams });
   } catch (error) {
-    throw error;
+    next(error);
   }
 };
+
 

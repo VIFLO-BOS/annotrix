@@ -59,6 +59,10 @@ app.use('/api/attempts', attemptRoutes); // Tracking user test submissions
 app.use('/api/annotator', dashboardRoutes); // User-specific statistics
 app.use('/api/admin', adminRoutes);     // Administrative controls and reports
 
+// Serve static files from the 'uploads' directory
+app.use('/uploads', express.static('uploads'));
+
+
 /**
  * Error Handling Logic
  * --------------------

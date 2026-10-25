@@ -49,10 +49,10 @@ export const verifyToken = (token: string): JWTPayload => {
 export const hashPassword = (password: string): string => {
   // Generate a random 16-byte salt
   const salt = crypto.randomBytes(16).toString('hex');
-  
+
   // Hash the password using PBKDF2 (SHA-512, 1000 iterations)
   const hash = crypto.pbkdf2Sync(password, salt, 1000, 64, 'sha512').toString('hex');
-  
+
   return `${salt}:${hash}`;
 };
 
@@ -65,11 +65,18 @@ export const hashPassword = (password: string): string => {
 export const verifyPassword = (password: string, hashedPassword: string): boolean => {
   // Split the stored value back into salt and original hash
   const [salt, hash] = hashedPassword.split(':');
-  
+
   // Re-hash the attempt using the original salt and parameters
   const verifyHash = crypto.pbkdf2Sync(password, salt, 1000, 64, 'sha512').toString('hex');
-  
+
   // Return true if the resulting hash matches the stored one
   return hash === verifyHash;
 };
 
+/**
+ * Hash a NIN using SHA-256. One-way — cannot be reversed.
+ * We hash (not encrypt) because we only need equality checks.
+ */
+export const hashNIN = (nin: string): string => {
+  return crypto.createHash('sha256').update(nin.trim()).digest('hex');
+}

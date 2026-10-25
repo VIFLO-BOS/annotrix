@@ -30,21 +30,24 @@ export const calculateAccuracy = async (attemptId: string): Promise<number> => {
     },
   });
 
-  let totalPoints = 0;
+  // Get all questions for this exam (to penalise unanswered ones)
+  const attempt = await prisma.attempt.findUnique({
+    where: { id: attemptId },
+    include: { exam: { include: { questions: true } } }
+  })
+
+  const totalPoints = attempt?.exam.questions.reduce((s, q) => s + q.points, 0) || 0;
   let earnedPoints = 0;
 
   for (const answer of answers) {
-    totalPoints += answer.question.points;
-
-    // Logic for Multiple Choice Questions
-    if (answer.question.type === QuestionType.MCQ) {
+    if (answer.question.type === 'MCQ') {
+      // Logic for Multiple Choice Questions
       const correctOption = answer.question.options.find((o: any) => o.isCorrect);
       if (correctOption && answer.selectedOptionId === correctOption.id) {
         earnedPoints += answer.question.points;
       }
-    } 
-    // Logic for Subjective/Text Questions
-    else {
+      // Logic for Subjective/Text Questions
+    } else {
       // For subjective questions, we give base 50% credit for any non-empty response.
       // This is often a placeholder for human review or more advanced AI analysis.
       if (answer.textAnswer && answer.textAnswer.trim().length > 0) {
@@ -53,7 +56,8 @@ export const calculateAccuracy = async (attemptId: string): Promise<number> => {
     }
   }
 
-  return totalPoints > 0 ? (earnedPoints / totalPoints) * 100 : 0;
+  const raw = totalPoints > 0 ? (earnedPoints / totalPoints) * 100 : 0;
+  return Math.min(raw, 100) //cap @ 100
 };
 
 /**
@@ -80,7 +84,7 @@ export const calculateTypingSpeed = async (attemptId: string): Promise<number> =
   }
 
   const avgWPM = subjectiveCount > 0 ? totalWPM / subjectiveCount : 0;
-  
+
   /**
    * WPM Scoring Curves:
    * 60+ WPM   -> 100% (Expert/Fast)
@@ -171,6 +175,51 @@ export const checkGrammar = async (attemptId: string): Promise<GrammarCheckResul
  * @param attemptId - The unique ID for the current attempt
  * @returns Plagiarism metrics including flag status
  */
+
+
+// Generate n-grams (word-level) from text
+function getNGrams(text: string, n: number = 3): string[] {
+  const words = text.toLocaleLowerCase().split(/\s+/).filter(w => w.length > 0);
+  if (words.length < n) return [words.join(' ')];
+  const grams: string[] = [];
+  for (let i = 0; i <= words.length - n; i++) {
+    grams.push(words.slice(i, i + n).join(' '))
+  }
+  return grams;
+}
+
+/**
+* Cosine similarity between two texts using n-gram frequency vectors.
+* Returns 0-100 percentage.
+*/
+
+function cosineSimilarity(text1: string, text2: string): number {
+  const grams1 = getNGrams(text1);
+  const grams2 = getNGrams(text2);
+
+
+  const freq1 = new Map<string, number>();
+  const freq2 = new Map<string, number>();
+
+  grams1.forEach(g => freq1.set(g, (freq1.get(g) || 0) + 1));
+  grams2.forEach(g => freq2.set(g, (freq2.get(g) || 0) + 1));
+
+  const allGrams = new Set([...freq1.keys(), ...freq2.keys()]);
+
+  let dot = 0, mag1 = 0, mag2 = 0;
+  for (const g of allGrams) {
+    const v1 = freq1.get(g) || 0;
+    const v2 = freq2.get(g) || 0;
+    dot += v1 * v2;
+    mag1 += v1 * v1;
+    mag2 += v2 * v2;
+  }
+
+  if (mag1 === 0 || mag2 === 0) return 0;
+
+  return (dot / (Math.sqrt(mag1) * Math.sqrt(mag2))) * 100;
+}
+
 export const checkPlagiarism = async (attemptId: string): Promise<PlagiarismCheckResult> => {
   const attempt = await prisma.attempt.findUnique({
     where: { id: attemptId },
@@ -185,7 +234,7 @@ export const checkPlagiarism = async (attemptId: string): Promise<PlagiarismChec
 
   // Factor 1: Frequency of paste events
   const totalPasteCount = attempt.answers.reduce((sum: number, a: any) => sum + a.pasteCount, 0);
-  
+
   // Factor 2: Text similarity with other submissions
   const otherAttempts = await prisma.attempt.findMany({
     where: {
@@ -222,8 +271,21 @@ export const checkPlagiarism = async (attemptId: string): Promise<PlagiarismChec
 
   // Penalize the similarity score if pasting was detected frequently
   // Each paste event adds 10% similarity penalty (up to 50% max)
-  const pastePenalty = Math.min(totalPasteCount * 10, 50); 
+  const pastePenalty = Math.min(totalPasteCount * 10, 50);
   const finalSimilarityScore = Math.min(maxSimilarity + pastePenalty, 100);
+
+
+  if (finalSimilarityScore > 50 || totalPasteCount > 3) {
+    await prisma.plagiarismReport.create({
+      data: {
+        attemptId,
+        similarityScore: finalSimilarityScore,
+        matchedContent: matchedContent || null,
+        source: sourceAttemptId || null,
+        flagged: finalSimilarityScore > 70 || totalPasteCount > 3,
+      },
+    });
+  }
 
   return {
     similarityScore: finalSimilarityScore,
@@ -245,9 +307,15 @@ const calculateTextSimilarity = (text1: string, text2: string): number => {
   if (s1 === s2) return 100;
   if (s1.length === 0 || s2.length === 0) return 0;
 
+  // levenshtein logic
   const distance = levenshteinDistance(s1, s2);
   const maxLength = Math.max(s1.length, s2.length);
-  return ((maxLength - distance) / maxLength) * 100;
+
+  // cosineSim
+  const cosineSim = cosineSimilarity(text1, text2);
+
+  // Use the HIGHER of both detectors - catches both verbatim and paraphrased
+  return Math.max(((maxLength - distance) / maxLength) * 100, cosineSim);
 };
 
 /**
@@ -309,7 +377,7 @@ export const evaluatePromptQuality = async (attemptId: string): Promise<number> 
     if (answer.question.type === QuestionType.SUBJECTIVE && answer.textAnswer) {
       subjectiveCount++;
       const text = answer.textAnswer;
-      
+
       let score = 50; // Starting base score
 
       // 1. Length Bonus: More content generally indicates more depth
@@ -369,7 +437,7 @@ export const evaluateAttempt = async (attemptId: string): Promise<EvaluationResu
   const plagiarismScore = 100 - plagiarismResult.similarityScore;
 
   // Weighted formula
-  const finalScore = 
+  const finalScore =
     (accuracy * 0.4) +
     (grammarResult.score * 0.2) +
     (plagiarismScore * 0.2) +

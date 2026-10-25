@@ -7,8 +7,10 @@
 import { Response } from 'express';
 import { AuthenticatedRequest, RegisterInput, LoginInput } from '../types';
 import { prisma } from '../utils/prisma';
-import { generateToken, hashPassword, verifyPassword } from '../utils/auth';
+import { generateToken, hashNIN, hashPassword, verifyPassword } from '../utils/auth';
 import { registerSchema, loginSchema } from '../utils/validation';
+import { createOTP, verifyOTP } from '../utils/otp';
+import { sendOTPEmail } from '../utils/email';
 
 /**
  * Registers a new user in the system.
@@ -36,6 +38,15 @@ export const register = async (req: AuthenticatedRequest, res: Response): Promis
     // Step 3: Securely hash the selected password
     const hashedPassword = hashPassword(validatedData.password);
 
+    const ninHash = hashNIN(validatedData.nin)
+
+    // checking for uniqueness
+    const existingNin = await prisma.user.findUnique({ where: { ninHash } });
+    if (existingNin) {
+      res.status(400).json({ error: 'An account with this NIN already exists.' });
+      return;
+    }
+
     // Step 4: Create the user record in the database
     // Note: We use 'select' here to ensure we don't return the hashed password string
     const user = await prisma.user.create({
@@ -44,6 +55,7 @@ export const register = async (req: AuthenticatedRequest, res: Response): Promis
         email: validatedData.email,
         phone: validatedData.phone,
         password: hashedPassword,
+        ninHash,
         role: 'USER', // Default role for new signups
       },
       select: {
@@ -56,6 +68,9 @@ export const register = async (req: AuthenticatedRequest, res: Response): Promis
         attempts: true,
         maxAttempts: true,
         createdAt: true,
+        emailVerified: true,
+        PhoneVerified: true,
+        ninVerified: true,
       },
     });
 
@@ -71,6 +86,60 @@ export const register = async (req: AuthenticatedRequest, res: Response): Promis
       user,
       token,
     });
+  } catch (error) {
+    throw error;
+  }
+};
+
+export const sendOtp = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    if (!req.user) {
+      res.status(401).json({ error: 'Not authenticated' });
+      return;
+    }
+
+    const { channel } = req.body as { channel?: 'EMAIL' | 'PHONE' };
+    if (channel !== 'EMAIL' && channel !== 'PHONE') {
+      res.status(400).json({ error: 'Invalid channel' });
+      return;
+    }
+
+    const code = await createOTP(req.user.id, channel);
+
+    if (channel === 'EMAIL') {
+      await sendOTPEmail(req.user.email, code);
+    } else {
+      // Potential SMS Implementation block can be placed here in the future
+      console.log(`[SMS MOCK] Sending OTP ${code} to Phone`);
+    }
+
+    const debug = process.env.NODE_ENV !== 'production';
+    res.json({ message: 'OTP created and sent successfully', ...(debug ? { code } : {}) });
+  } catch (error) {
+    throw error;
+  }
+};
+
+export const verifyOtpHandler = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    if (!req.user) {
+      res.status(401).json({ error: 'Not authenticated' });
+      return;
+    }
+
+    const { code, channel } = req.body as { code?: string; channel?: 'EMAIL' | 'PHONE' };
+    if (!code || (channel !== 'EMAIL' && channel !== 'PHONE')) {
+      res.status(400).json({ error: 'Invalid request' });
+      return;
+    }
+
+    const ok = await verifyOTP(req.user.id, code, channel);
+    if (!ok) {
+      res.status(400).json({ verified: false, error: 'Invalid or expired code' });
+      return;
+    }
+
+    res.json({ verified: true });
   } catch (error) {
     throw error;
   }
@@ -125,6 +194,9 @@ export const login = async (req: AuthenticatedRequest, res: Response): Promise<v
         status: user.status,
         attempts: user.attempts,
         maxAttempts: user.maxAttempts,
+        emailVerified: user.emailVerified,
+        PhoneVerified: user.PhoneVerified,
+        ninVerified: user.ninVerified,
       },
       token,
     });
@@ -159,6 +231,9 @@ export const getMe = async (req: AuthenticatedRequest, res: Response): Promise<v
         attempts: true,
         maxAttempts: true,
         createdAt: true,
+        emailVerified: true,
+        PhoneVerified: true,
+        ninVerified: true,
       },
     });
 

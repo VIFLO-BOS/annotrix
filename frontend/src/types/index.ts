@@ -17,6 +17,9 @@ export interface User {
   status: 'ELIGIBLE' | 'DISQUALIFIED';
   attempts: number; // Number of attempts already taken
   maxAttempts: number; // Total allowed attempts
+  ninVerified?: boolean;
+  emailVerified?: boolean;
+  PhoneVerified?: boolean;
   createdAt: string;
 }
 
@@ -45,6 +48,7 @@ export interface Question {
   type: 'MCQ' | 'SUBJECTIVE';
   order: number;
   points: number;
+  image?: string;
   options?: Option[];
 }
 
@@ -56,6 +60,7 @@ export interface Option {
   questionId: string;
   content: string;
   order: number;
+  imageUrl?: string;
 }
 
 /**

@@ -33,8 +33,10 @@ export default function DashboardLayout({
     // Only redirect once initialization has finished
     if (hasHydrated && !isLoading && !isAuthenticated) {
       router.replace("/login");
+    } else if (hasHydrated && !isLoading && isAuthenticated && !user?.emailVerified) {
+      router.replace("/verify");
     }
-  }, [hasHydrated, isLoading, isAuthenticated, router]);
+  }, [hasHydrated, isLoading, isAuthenticated, router, user]);
 
   // Prevent rendering protected content while the session is being initialized from persistence
   if (isLoading || !hasHydrated || !isAuthenticated) {

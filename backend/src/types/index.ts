@@ -27,6 +27,7 @@ export interface RegisterInput {
   email: string;
   phone: string;
   password: string;
+  nin: string;
 }
 
 /**
@@ -57,6 +58,7 @@ export interface CreateQuestionInput {
   type: QuestionType;
   order: number;
   points?: number;
+  imageUrl?: string;
   options?: CreateOptionInput[];
 }
 
@@ -67,6 +69,7 @@ export interface CreateOptionInput {
   content: string;
   isCorrect?: boolean;
   order: number;
+  imageUrl?: string;
 }
 
 /**

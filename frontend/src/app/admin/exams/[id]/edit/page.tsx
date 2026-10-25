@@ -3,6 +3,7 @@
  * @description The assessment manifest editor for administrators.
  * Provides a formal interface for modifying metadata (title, pass mark, 
  * duration) and proctoring parameters for existing exams.
+ * Includes image management for exam questions.
  */
 
 'use client';
@@ -17,6 +18,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 import { api } from '@/services/api';
+import { Exam, Question } from '@/types';
 import { 
   ChevronLeft, 
   Save, 
@@ -26,13 +28,18 @@ import {
   ShieldCheck,
   ClipboardList,
   AlertTriangle,
-  Loader2
+  Loader2,
+  ImageIcon,
+  Upload,
+  X,
+  ZoomIn
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 /**
  * Admin Edit Exam Page Component
  * Redesigned with glassmorphism and refined sizing.
+ * Includes image management for question reference images.
  */
 export default function AdminEditExamPage({ params }: { params: { id: string } }) {
   const { id } = params;
@@ -41,6 +48,7 @@ export default function AdminEditExamPage({ params }: { params: { id: string } }
 
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [exam, setExam] = useState<Exam | null>(null);
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -49,6 +57,7 @@ export default function AdminEditExamPage({ params }: { params: { id: string } }
     passMark: 70,
     isActive: true,
   });
+  const [uploadingImage, setUploadingImage] = useState<string | null>(null);
 
   useEffect(() => {
     fetchExam();
@@ -60,14 +69,15 @@ export default function AdminEditExamPage({ params }: { params: { id: string } }
   const fetchExam = async () => {
     try {
       const response = await api.getExam(id);
-      const exam = response.exam;
+      const examData = response.exam;
+      setExam(examData);
       setFormData({
-        title: exam.title,
-        description: exam.description || '',
-        duration: exam.duration,
-        maxAttempts: exam.maxAttempts,
-        passMark: exam.passMark,
-        isActive: exam.isActive,
+        title: examData.title,
+        description: examData.description || '',
+        duration: examData.duration,
+        maxAttempts: examData.maxAttempts,
+        passMark: examData.passMark,
+        isActive: examData.isActive,
       });
     } catch (error: any) {
       toast({
@@ -84,8 +94,8 @@ export default function AdminEditExamPage({ params }: { params: { id: string } }
   /**
    * Handles form submission and manifest synchronization with the backend.
    */
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     setIsSaving(true);
 
     try {
@@ -106,6 +116,42 @@ export default function AdminEditExamPage({ params }: { params: { id: string } }
     }
   };
 
+  /**
+   * Handles image upload for a specific question.
+   */
+  const handleImageUpload = async (questionId: string, file: File) => {
+    setUploadingImage(questionId);
+    try {
+      const result = await api.uploadImage(file);
+      // Update the question image via a dedicated endpoint or re-fetch
+      // For now, we'll update the question image through a PATCH-like approach
+      await api.updateQuestionImage(questionId, result.url);
+      
+      // Update local state
+      if (exam) {
+        setExam({
+          ...exam,
+          questions: exam.questions?.map(q => 
+            q.id === questionId ? { ...q, image: result.url } : q
+          ),
+        });
+      }
+      
+      toast({
+        title: 'Image Updated',
+        description: 'The reference image has been successfully replaced.',
+      });
+    } catch (error: any) {
+      toast({
+        title: 'Upload Failed',
+        description: error.response?.data?.error || 'Could not upload the image. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setUploadingImage(null);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-4">
@@ -119,7 +165,7 @@ export default function AdminEditExamPage({ params }: { params: { id: string } }
   }
 
   return (
-    <div className="max-w-4xl mx-auto space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-20">
+    <div className="max-w-5xl mx-auto space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-20">
       {/* Header Section */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
@@ -147,7 +193,7 @@ export default function AdminEditExamPage({ params }: { params: { id: string } }
             Cancel Changes
           </Button>
           <Button 
-            onClick={handleSubmit} 
+            onClick={() => handleSubmit()} 
             disabled={isSaving}
             className="rounded-full h-9 font-medium text-xs px-6 shadow-lg shadow-primary/20 transition-all hover:scale-105 active:scale-95"
           >
@@ -236,6 +282,128 @@ export default function AdminEditExamPage({ params }: { params: { id: string } }
                 </div>
              </CardContent>
           </Card>
+
+          {/* Question Images Management Card */}
+          {exam?.questions && exam.questions.length > 0 && (
+            <Card className="border-none shadow-glass glass-card overflow-hidden">
+              <div className="h-1 w-full bg-gradient-to-r from-violet-500/60 to-violet-500/10" />
+              <CardHeader className="pb-4 border-b border-white/5">
+                <CardTitle className="text-lg font-semibold flex items-center gap-2 text-muted-foreground/60">
+                  <ImageIcon className="w-4 h-4 text-violet-500" /> Question Reference Images
+                </CardTitle>
+                <p className="text-[10px] font-medium text-muted-foreground/40 mt-1">
+                  Manage the reference images attached to each question. These images are displayed to users during the exam.
+                </p>
+              </CardHeader>
+              <CardContent className="pt-6 space-y-6">
+                {exam.questions.sort((a, b) => (a.order || 0) - (b.order || 0)).map((q, idx) => (
+                  <div key={q.id} className="rounded-2xl border border-white/5 bg-foreground/[0.02] overflow-hidden">
+                    {/* Question Header */}
+                    <div className="flex items-center gap-3 px-5 py-3 border-b border-white/5 bg-foreground/[0.02]">
+                      <div className="flex items-center justify-center w-7 h-7 rounded-lg bg-primary/10 text-primary text-xs font-bold">
+                        {idx + 1}
+                      </div>
+                      <p className="text-xs font-medium text-foreground/70 line-clamp-1 flex-1">
+                        {q.content}
+                      </p>
+                      <span className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground/30 shrink-0">
+                        {q.type}
+                      </span>
+                    </div>
+
+                    {/* Image Section */}
+                    <div className="p-5">
+                      {q.image ? (
+                        <div className="space-y-4">
+                          {/* Current Image Preview */}
+                          <div className="relative rounded-xl overflow-hidden border border-white/10 bg-foreground/[0.02]">
+                            <div className="flex items-center gap-2 px-4 py-2 border-b border-white/5 bg-foreground/[0.03]">
+                              <ImageIcon className="w-3.5 h-3.5 text-primary/60" />
+                              <span className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground/40">Current Reference Image</span>
+                              <a 
+                                href={q.image} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="ml-auto flex items-center gap-1 text-[9px] font-medium text-primary/60 hover:text-primary transition-colors"
+                              >
+                                <ZoomIn className="w-3 h-3" /> View Full Size
+                              </a>
+                            </div>
+                            <div className="p-3">
+                              <img 
+                                src={q.image}
+                                alt={`Reference image for question ${idx + 1}`}
+                                className="w-full max-h-[400px] object-contain rounded-lg"
+                              />
+                            </div>
+                          </div>
+                          
+                          {/* Replace Image Button */}
+                          <div className="flex items-center gap-3">
+                            <input
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              id={`edit-q-img-${q.id}`}
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) handleImageUpload(q.id, file);
+                              }}
+                            />
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="rounded-xl h-9 px-4 font-medium text-[10px] uppercase tracking-wider border-white/5 hover:bg-primary/10 hover:text-primary transition-all"
+                              disabled={uploadingImage === q.id}
+                              onClick={() => document.getElementById(`edit-q-img-${q.id}`)?.click()}
+                            >
+                              {uploadingImage === q.id ? (
+                                <Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" />
+                              ) : (
+                                <Upload className="w-3.5 h-3.5 mr-2" />
+                              )}
+                              Replace Image
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex flex-col items-center justify-center py-10 rounded-xl border border-dashed border-white/10 bg-foreground/[0.01]">
+                          <ImageIcon className="w-10 h-10 text-muted-foreground/10 mb-3" />
+                          <p className="text-xs font-medium text-muted-foreground/30 mb-4">No reference image attached</p>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            id={`edit-q-img-${q.id}`}
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) handleImageUpload(q.id, file);
+                            }}
+                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="rounded-xl h-9 px-5 font-medium text-[10px] uppercase tracking-wider border-white/5 hover:bg-primary/10 hover:text-primary transition-all"
+                            disabled={uploadingImage === q.id}
+                            onClick={() => document.getElementById(`edit-q-img-${q.id}`)?.click()}
+                          >
+                            {uploadingImage === q.id ? (
+                              <Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" />
+                            ) : (
+                              <Upload className="w-3.5 h-3.5 mr-2" />
+                            )}
+                            Upload Image
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          )}
         </div>
 
         {/* Sidebar Controls */}

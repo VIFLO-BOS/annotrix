@@ -28,7 +28,9 @@ import {
   CheckCircle2,
   AlertTriangle,
   MoveUp,
-  MoveDown
+  MoveDown,
+  ImageIcon,
+  ZoomIn
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
@@ -217,6 +219,30 @@ export default function AdminExamDetailsPage({ params }: { params: { id: string 
                               <p className="text-sm font-medium text-foreground/90 leading-relaxed">
                                 {q.content}
                               </p>
+                              {/* Reference Image Display */}
+                              {q.image && (
+                                <div className="mt-4 rounded-2xl overflow-hidden border border-white/10 bg-foreground/[0.02] group/img relative">
+                                  <div className="flex items-center gap-2 px-4 py-2 border-b border-white/5 bg-foreground/[0.03]">
+                                    <ImageIcon className="w-3.5 h-3.5 text-primary/60" />
+                                    <span className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground/40">Reference Image</span>
+                                    <a 
+                                      href={q.image} 
+                                      target="_blank" 
+                                      rel="noopener noreferrer"
+                                      className="ml-auto flex items-center gap-1 text-[9px] font-medium text-primary/60 hover:text-primary transition-colors"
+                                    >
+                                      <ZoomIn className="w-3 h-3" /> Full Size
+                                    </a>
+                                  </div>
+                                  <div className="p-3">
+                                    <img 
+                                      src={q.image} 
+                                      alt={`Reference image for question ${idx + 1}`}
+                                      className="w-full max-h-[500px] object-contain rounded-xl"
+                                    />
+                                  </div>
+                                </div>
+                              )}
                               {q.type === 'MCQ' && q.options && q.options.length > 0 && (
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
                                   {q.options.sort((a, b) => a.order - b.order).map((opt) => (
