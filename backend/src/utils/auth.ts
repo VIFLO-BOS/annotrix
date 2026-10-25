@@ -74,7 +74,7 @@ export const verifyPassword = (password: string, hashedPassword: string): boolea
 };
 
 /**
- * Hash a NIN using SHA-256. One-way — cannot be reversed.
+ * Hash a NIN using SHA-256. One-way - cannot be reversed.
  * We hash (not encrypt) because we only need equality checks.
  */
 export const hashNIN = (nin: string): string => {

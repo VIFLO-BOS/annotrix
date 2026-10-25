@@ -419,7 +419,7 @@ export default function ActiveExamPage({ params }: PageProps) {
                       <div className="p-1 rounded-md bg-primary/20">
                         <ImageIcon className="w-3.5 h-3.5 text-primary" />
                       </div>
-                      <span className="text-[10px] font-bold uppercase tracking-widest text-primary/70">Reference Image — Study carefully before answering</span>
+                      <span className="text-[10px] font-bold uppercase tracking-widest text-primary/70">Reference Image - Study carefully before answering</span>
                     </div>
                     <div className="p-4 bg-foreground/[0.01]">
                       <img 

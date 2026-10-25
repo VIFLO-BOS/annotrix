@@ -1,5 +1,5 @@
 /**
- * Fisher-Yates shuffle — produces a cryptographically fair random permutation.
+ * Fisher-Yates shuffle - produces a cryptographically fair random permutation.
  */
 
 
